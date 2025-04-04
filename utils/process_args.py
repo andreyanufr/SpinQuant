@@ -241,6 +241,13 @@ def parser_gen():
     parser.add_argument(
         "--layer_idx", type=int, default=10, help="Which decoder layer to capture"
     )
+    
+    parser.add_argument(
+        "--no_hadamard",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Disable Hadamard rotation for the model",
+    )
 
     args, unknown = parser.parse_known_args()
 

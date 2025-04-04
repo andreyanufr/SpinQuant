@@ -7,7 +7,7 @@
 
 # nnodes determines the number of GPU nodes to utilize (usually 1 for an 8 GPU node)
 # nproc_per_node indicates the number of GPUs per node to employ.
-torchrun --nnodes=1 --nproc_per_node=8 optimize_rotation.py \
+torchrun --nnodes=1 --nproc_per_node=2 optimize_rotation.py \
 --input_model $1  \
 --output_rotation_path "your_path" \
 --output_dir "your_output_path/" \
@@ -24,6 +24,7 @@ torchrun --nnodes=1 --nproc_per_node=8 optimize_rotation.py \
 --gradient_checkpointing True \
 --save_safetensors False \
 --max_steps 100 \
+--no_hadamard \
 --w_bits $2 \
 --a_bits $3 \
 --k_bits $4 \
