@@ -31,13 +31,14 @@ def ptq_model(args, model, model_args=None):
 
         quant_utils.add_actquant(model)  # Add Activation Wrapper to the model
         qlayers = quant_utils.find_qlayers(model)
-        for name in qlayers:
-            if "down_proj" in name:
-                had_K, K = hadamard_utils.get_hadK(model.config.intermediate_size)
-                qlayers[name].online_full_had = True
-                qlayers[name].had_K = had_K
-                qlayers[name].K = K
-                qlayers[name].fp32_had = args.fp32_had
+        if not args.no_hadamard:
+            for name in qlayers:
+                if "down_proj" in name:
+                    had_K, K = hadamard_utils.get_hadK(model.config.intermediate_size)
+                    qlayers[name].online_full_had = True
+                    qlayers[name].had_K = had_K
+                    qlayers[name].K = K
+                    qlayers[name].fp32_had = args.fp32_had
     else:
         quant_utils.add_actquant(
             model
@@ -153,5 +154,24 @@ def ptq_model(args, model, model_args=None):
                     config=model.config,
                     **k_quant_config,
                 )
+
+    return model
+
+
+def rotate_model(args, model, model_args=None):
+    transformers.set_seed(args.seed)
+    model.eval()
+
+    fuse_norm_utils.fuse_layer_norms(model)
+    rotation_utils.rotate_model(model, args)
+    utils.cleanup_memory(verbos=True)
+    
+    
+    layers = [layer for layer in model.model.layers]
+    for idx, layer in enumerate(layers):
+        layer.self_attn.v_proj.weight.data = layer.self_attn.v_proj.weight.data.contiguous()
+        layer.self_attn.k_proj.weight.contiguous()
+        layer.self_attn.q_proj.weight.contiguous()
+        layer.self_attn.o_proj.weight.contiguous()
 
     return model

@@ -7,7 +7,7 @@
 
 # nnodes determines the number of GPU nodes to utilize (usually 1 for an 8 GPU node)
 # nproc_per_node indicates the number of GPUs per node to employ.
-torchrun --nnodes=1 --nproc_per_node=1 ptq.py \
+python rotate_and_save.py \
 --input_model $1 \
 --do_train False \
 --do_eval True \
@@ -26,7 +26,6 @@ torchrun --nnodes=1 --nproc_per_node=1 ptq.py \
 --v_asym \
 --k_groupsize 128 \
 --v_groupsize 128 \
---w_groupsize 128 \
 --no_hadamard \
 --rotate \
 --optimized_rotation_path "your_path_3.2/R.bin" \

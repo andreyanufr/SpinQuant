@@ -22,8 +22,8 @@ def fuse_ln_linear(
         linear_dtype = linear.weight.dtype
 
         # Calculating new weight and bias
-        W_ = linear.weight.data.double()
-        linear.weight.data = (W_ * layernorm.weight.double()).to(linear_dtype)
+        W_ = linear.weight.data.double().cpu()
+        linear.weight.data = (W_ * layernorm.weight.double().cpu()).to(linear_dtype).to(linear.weight.device)
 
         if hasattr(layernorm, "bias"):
             if linear.bias is None:
@@ -35,14 +35,14 @@ def fuse_ln_linear(
             )
             linear.bias.data = linear.bias.data.to(linear_dtype)
 
-
+@torch.no_grad()
 def fuse_layer_norms(model):
     kwargs = {"model": model}
 
     # Embedding fusion
     for W in [model.model.embed_tokens]:
-        W_ = W.weight.data.double()
-        W.weight.data = (W_ - W_.mean(dim=-1, keepdim=True)).to(W.weight.data.dtype)
+        W_ = W.weight.data.double().cpu()
+        W.weight.data = (W_ - W_.mean(dim=-1, keepdim=True)).to(W.weight.data.dtype).to(W.weight.data.device)
 
     layers = [layer for layer in model.model.layers]
 

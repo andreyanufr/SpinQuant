@@ -56,7 +56,7 @@ def rotate_embeddings(model, R1: torch.Tensor) -> None:
     # Rotate the embeddings.
     for W in [model.model.embed_tokens]:
         dtype = W.weight.data.dtype
-        W_ = W.weight.data.to(device="cuda", dtype=torch.float64)
+        W_ = W.weight.data.to(device="cpu", dtype=torch.float64)
         W.weight.data = torch.matmul(W_, R1).to(device="cpu", dtype=dtype)
 
 
@@ -64,7 +64,7 @@ def rotate_attention_inputs(layer, R1) -> None:
     # Rotate the WQ, WK and WV matrices of the self-attention layer.
     for W in [layer.self_attn.q_proj, layer.self_attn.k_proj, layer.self_attn.v_proj]:
         dtype = W.weight.dtype
-        W_ = W.weight.to(device="cuda", dtype=torch.float64)
+        W_ = W.weight.to(device="cpu", dtype=torch.float64)
         W.weight.data = torch.matmul(W_, R1).to(device="cpu", dtype=dtype)
 
 
@@ -73,10 +73,10 @@ def rotate_attention_output(layer, R1) -> None:
     W = layer.self_attn.o_proj
 
     dtype = W.weight.data.dtype
-    W_ = W.weight.data.to(device="cuda", dtype=torch.float64)
+    W_ = W.weight.data.to(device="cpu", dtype=torch.float64)
     W.weight.data = torch.matmul(R1.T, W_).to(device="cpu", dtype=dtype)
     if W.bias is not None:
-        b = W.bias.data.to(device="cuda", dtype=torch.float64)
+        b = W.bias.data.to(device="cpu", dtype=torch.float64)
         W.bias.data = torch.matmul(R1.T, b).to(device="cpu", dtype=dtype)
 
 
@@ -85,7 +85,7 @@ def rotate_mlp_input(layer, R1):
     mlp_inputs = [layer.mlp.up_proj, layer.mlp.gate_proj]
     for W in mlp_inputs:
         dtype = W.weight.dtype
-        W_ = W.weight.data.to(device="cuda", dtype=torch.float64)
+        W_ = W.weight.data.to(device="cpu", dtype=torch.float64)
         W.weight.data = torch.matmul(W_, R1).to(device="cpu", dtype=dtype)
 
 
@@ -93,13 +93,13 @@ def rotate_mlp_output(layer, R1):
     # Rotate the MLP output weights and bias.
     W = layer.mlp.down_proj
     dtype = W.weight.data.dtype
-    W_ = W.weight.data.to(device="cuda", dtype=torch.float64)
+    W_ = W.weight.data.to(device="cpu", dtype=torch.float64)
     W.weight.data = torch.matmul(R1.T, W_).to(device="cpu", dtype=dtype)
-    apply_exact_had_to_linear(
-        W, had_dim=-1, output=False
-    )  # apply exact (inverse) hadamard on the weights of mlp output
+    # apply_exact_had_to_linear(
+    #     W, had_dim=-1, output=False
+    # )  # apply exact (inverse) hadamard on the weights of mlp output
     if W.bias is not None:
-        b = W.bias.data.to(device="cuda", dtype=torch.float64)
+        b = W.bias.data.to(device="cpu", dtype=torch.float64)
         W.bias.data = torch.matmul(R1.T, b).to(device="cpu", dtype=dtype)
 
 
@@ -107,8 +107,8 @@ def rotate_head(model, R1: torch.Tensor) -> None:
     # Rotate the head.
     W = model.lm_head
     dtype = W.weight.data.dtype
-    W_ = W.weight.data.to(device="cuda", dtype=torch.float64)
-    W.weight.data = torch.matmul(W_, R1).to(device="cpu", dtype=dtype)
+    W_ = W.weight.data.to(device="cpu", dtype=torch.float64)
+    W.weight.data = torch.matmul(W_, R1.to("cpu")).to(device="cpu", dtype=dtype)
 
 
 def rotate_ov_proj(layer, head_num, head_dim, R2=None):
@@ -125,6 +125,7 @@ def rotate_model(model, args):
     if args.optimized_rotation_path is not None:
         R_cpk = args.optimized_rotation_path
         R1 = torch.load(R_cpk)["R1"].cuda().to(torch.float64)
+    R1 = R1.to(device="cpu")
     config = model.config
     num_heads = config.num_attention_heads
     model_dim = config.hidden_size
@@ -134,12 +135,14 @@ def rotate_model(model, args):
     rotate_head(model, R1)
     utils.cleanup_memory()
     layers = [layer for layer in model.model.layers]
+    
     for idx, layer in enumerate(tqdm.tqdm(layers, unit="layer", desc="Rotating")):
         if args.optimized_rotation_path is not None:
             key = f"model.layers.{idx}.self_attn.R2"
             R2 = torch.load(R_cpk)[key].cuda().to(torch.float64)
         else:
             R2 = get_orthogonal_matrix(head_dim, args.rotate_mode)
+        R2 = R2.to(device="cpu")
         rotate_attention_inputs(layers[idx], R1)
         rotate_attention_output(layers[idx], R1)
         rotate_mlp_input(layers[idx], R1)

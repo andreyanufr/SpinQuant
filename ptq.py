@@ -49,6 +49,7 @@ def train() -> None:
 
     model = ptq_model(ptq_args, model, model_args)
     model.seqlen = training_args.model_max_length
+
     if local_rank == 0:
         log.info("Model PTQ completed {}".format(model))
         log.info("Start to load tokenizer...")

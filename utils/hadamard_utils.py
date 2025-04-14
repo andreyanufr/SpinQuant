@@ -152,7 +152,7 @@ def apply_exact_had_to_linear(module, had_dim=-1, output=False, R2=None):
     dtype = W_.dtype
     dev = W_.device
     init_shape = W_.shape
-    W_ = W_.float().cuda()
+    W_ = W_.float()#.cuda()
 
     if had_dim == -1:
         if output:
@@ -162,7 +162,7 @@ def apply_exact_had_to_linear(module, had_dim=-1, output=False, R2=None):
             had_K, K = get_hadK(in_features)
             W_ = matmul_hadU_cuda(W_, had_K, K)
     else:
-        hadK = hadamard_matrix(had_dim, "cuda").to(torch.float64)
+        hadK = hadamard_matrix(had_dim, "cpu").to(torch.float64)
         if R2 is not None:
             hadK = R2.to(torch.float64)
         if output:

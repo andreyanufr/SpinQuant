@@ -12,7 +12,7 @@ torchrun --nnodes=1 --nproc_per_node=1 ptq.py \
 --do_train False \
 --do_eval True \
 --per_device_eval_batch_size 4 \
---model_max_length 2048 \
+--model_max_length 4096 \
 --fp16 False \
 --bf16 True \
 --save_safetensors False \
@@ -28,6 +28,5 @@ torchrun --nnodes=1 --nproc_per_node=1 ptq.py \
 --v_groupsize 128 \
 --w_groupsize 128 \
 --no_hadamard \
---rotate \
 --optimized_rotation_path "your_path_3.2/R.bin" \
 

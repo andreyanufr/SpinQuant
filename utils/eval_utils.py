@@ -124,3 +124,39 @@ def evaluator(model, testenc, dev, args):
     model.config.use_cache = use_cache
     logging.info(f"\n WikiText2 PPL: {ppl.item():.3f}")
     return ppl.item()
+
+
+
+@torch.no_grad()
+def evaluator_ov(model, testenc, dev, args):
+    use_cache = model.config.use_cache
+    model.config.use_cache = False
+
+    # Convert the whole text of evaluation dataset into batches of sequences.
+    input_ids = testenc.input_ids  # (1, text_len)
+    nsamples = input_ids.numel() // model.seqlen  # The tail is truncated.
+    input_ids = (
+        input_ids[:, : nsamples * model.seqlen].view(nsamples, model.seqlen).to(dev)
+    )  # (nsamples, seqlen)
+
+    batch_size = args.bsz
+    input_ids = [input_ids[i : i + batch_size] for i in range(0, nsamples, batch_size)]
+    nbatches = len(input_ids)
+
+    nlls = []
+    loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
+    for i in range(nbatches):
+        batch = input_ids[i]
+        data = model(batch)#.generate(batch, return_dict_in_generate=True, output_scores=True, max_new_tokens=1, output_logits=True)
+        
+        lm_logits = data.logits#[:, :-1, :]
+        shift_logits = lm_logits[:, :-1, :]
+        shift_labels = input_ids[i][:, 1:]
+        loss = loss_fct(shift_logits.permute(0, 2, 1), shift_labels)
+        neg_log_likelihood = loss.float().mean(dim=1)
+        nlls.append(neg_log_likelihood)
+    nlls_tensor = torch.cat(nlls)
+    ppl = torch.exp(nlls_tensor.mean())
+    model.config.use_cache = use_cache
+    logging.info(f"\n WikiText2 PPL: {ppl.item():.3f}")
+    return ppl.item()
