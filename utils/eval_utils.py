@@ -128,7 +128,7 @@ def evaluator(model, testenc, dev, args):
 
 
 @torch.no_grad()
-def evaluator_ov(model, testenc, dev, args):
+def evaluator_ov(model, testenc, dev, batch_size=4):
     use_cache = model.config.use_cache
     model.config.use_cache = False
 
@@ -139,7 +139,6 @@ def evaluator_ov(model, testenc, dev, args):
         input_ids[:, : nsamples * model.seqlen].view(nsamples, model.seqlen).to(dev)
     )  # (nsamples, seqlen)
 
-    batch_size = args.bsz
     input_ids = [input_ids[i : i + batch_size] for i in range(0, nsamples, batch_size)]
     nbatches = len(input_ids)
 
